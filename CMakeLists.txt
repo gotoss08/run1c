@@ -39,7 +39,7 @@ set(imgui_srcs
 )
 
 set(project_srcs
-    main.cpp
+    src/main.cpp
 )
 
 # Debug executable
