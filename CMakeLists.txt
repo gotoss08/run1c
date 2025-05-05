@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.00)
+cmake_minimum_required(VERSION 3.30)
 project(run1c)
 
 # Project settings
@@ -15,6 +15,8 @@ string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" PLATFORM)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 # Dependencies
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/vendor/freetype-2.13.3/)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor/SDL2-2.32.4/include/)
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor/SDL2-2.32.4/lib/x64/)
 
@@ -32,6 +34,8 @@ set(imgui_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui-1.91.9b/misc/cpp/imgui_stdlib.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui-1.91.9b/backends/imgui_impl_sdl2.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui-1.91.9b/backends/imgui_impl_opengl3.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui-1.91.9b/misc/freetype/imgui_freetype.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui-1.91.9b/misc/freetype/imgui_freetype.cpp
 )
 
 set(project_srcs
@@ -42,11 +46,10 @@ set(project_srcs
 add_executable(run1c_debug ${project_srcs} ${imgui_srcs})
 set_target_properties(run1c_debug PROPERTIES OUTPUT_NAME "run1c_debug_v${EXECUTABLE_VERSION}_${PLATFORM}")
 target_compile_options(run1c_debug PRIVATE -g) # Add debug symbols
-target_link_libraries(run1c_debug SDL2main.lib SDL2.lib opengl32.lib)
-
-# Production executable
-add_executable(run1c_production WIN32 ${project_srcs} ${imgui_srcs})
-set_target_properties(run1c_production PROPERTIES OUTPUT_NAME "run1c_production_v${EXECUTABLE_VERSION}_${PLATFORM}")
-target_compile_options(run1c_production PRIVATE -O2) # Add optimization
-target_compile_definitions(run1c_production PRIVATE NDEBUG) # Disable asserts
-target_link_libraries(run1c_production SDL2main.lib SDL2.lib opengl32.lib)
+target_link_libraries(run1c_debug SDL2main SDL2 opengl32 freetype)
+# # Production executable
+# add_executable(run1c_production WIN32 ${project_srcs} ${imgui_srcs})
+# set_target_properties(run1c_production PROPERTIES OUTPUT_NAME "run1c_production_v${EXECUTABLE_VERSION}_${PLATFORM}")
+# # target_compile_options(run1c_production PRIVATE -O2) # Add optimization
+# # target_compile_definitions(run1c_production PRIVATE NDEBUG) # Disable asserts
+# target_link_libraries(run1c_production SDL2main.lib SDL2.lib opengl32.lib)
