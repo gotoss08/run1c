@@ -9,6 +9,39 @@
 #include <SDL_opengl.h>
 
 #include <iostream>
+#include <vector>
+
+#include "utils.h"
+
+class RUN1C {
+public:
+    RUN1C() {
+        starterPath = getEnvironmentVariable("PROGRAMFILES") + "\\1cv8\\common\\1cestart.exe";
+    };
+    RUN1C(std::string starterPath) : starterPath(starterPath) {};
+    void run(std::string path);
+private:
+    std::string starterPath;
+};
+
+void RUN1C::run(std::string path) {
+
+    // detect path type using regex
+
+    // need to handle:
+    //   File="c:\temp\";
+    //   c:\temp\
+    //   c:/temp/
+    //   "c:\temp\"
+    //   "c:/temp/"
+
+    std::vector<std::string> args;
+    args.push_back("/F");
+    args.push_back("\"" + path + "\"");
+
+    launchProcess(starterPath, args);
+
+}
 
 float getScreenDPI(SDL_Window* window) {
     float dpi = -1.0f;
@@ -20,6 +53,7 @@ float getScreenDPI(SDL_Window* window) {
 }
 
 int main(int,char**) {
+    
     SetConsoleOutputCP(CP_UTF8);
     setvbuf(stdout, nullptr, _IOFBF, 1000);
 
@@ -108,6 +142,8 @@ int main(int,char**) {
 
     ImGui::GetStyle().ScaleAllSizes(dpiScale);
 
+    auto run1c = new RUN1C();
+
     // Our state
     bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -156,12 +192,12 @@ int main(int,char**) {
 
             ImGui::Separator();
 
-            std::string buf = "Hello, world!"; // Example string to be used in the input field
+            std::string buf = ""; // Example string to be used in the input field
 
             ImGui::SetNextItemWidth(-1); // Make the input field take the full width of the window
-            ImGui::SetKeyboardFocusHere(); // Set keyboard focus to the input field
-            if (ImGui::InputTextWithHint("##input", "Enter text here...", &buf, ImGuiInputTextFlags_EnterReturnsTrue, nullptr, nullptr)) {
-                std::cout << "Input: " << buf << std::endl; // Print the input to the console
+            // ImGui::SetKeyboardFocusHere(); // Set keyboard focus to the input field
+            if (ImGui::InputTextWithHint("##input", "1C base file path...", &buf, ImGuiInputTextFlags_EnterReturnsTrue, nullptr, nullptr)) {
+                run1c->run(buf);
             }
             ImGui::SetItemDefaultFocus(); // Set focus to the input field
 
