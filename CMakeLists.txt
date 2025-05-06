@@ -42,14 +42,7 @@ set(project_srcs
     src/main.cpp
 )
 
-# Debug executable
 add_executable(run1c_debug ${project_srcs} ${imgui_srcs})
 set_target_properties(run1c_debug PROPERTIES OUTPUT_NAME "run1c_debug_v${EXECUTABLE_VERSION}_${PLATFORM}")
 target_compile_options(run1c_debug PRIVATE -g) # Add debug symbols
 target_link_libraries(run1c_debug SDL2main SDL2 opengl32 freetype)
-# # Production executable
-# add_executable(run1c_production WIN32 ${project_srcs} ${imgui_srcs})
-# set_target_properties(run1c_production PROPERTIES OUTPUT_NAME "run1c_production_v${EXECUTABLE_VERSION}_${PLATFORM}")
-# # target_compile_options(run1c_production PRIVATE -O2) # Add optimization
-# # target_compile_definitions(run1c_production PRIVATE NDEBUG) # Disable asserts
-# target_link_libraries(run1c_production SDL2main.lib SDL2.lib opengl32.lib)
