@@ -53,6 +53,10 @@
         "xmemory": "cpp",
         "xstring": "cpp",
         "xtr1common": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "sstream": "cpp",
+        "algorithm": "cpp",
+        "optional": "cpp",
+        "regex": "cpp"
     }
 }
