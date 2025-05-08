@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 #include "utils.h"
 
@@ -19,27 +20,41 @@ public:
         starterPath = getEnvironmentVariable("PROGRAMFILES") + "\\1cv8\\common\\1cestart.exe";
     };
     RUN1C(std::string starterPath) : starterPath(starterPath) {};
-    void run(std::string path);
+    bool run(std::string input, bool isConfigMode = false);
 private:
     std::string starterPath;
 };
 
-void RUN1C::run(std::string path) {
-
-    // detect path type using regex
-
-    // need to handle:
-    //   File="c:\temp\";
-    //   c:\temp\
-    //   c:/temp/
-    //   "c:\temp\"
-    //   "c:/temp/"
+bool RUN1C::run(std::string input, bool isConfigMode) {
 
     std::vector<std::string> args;
-    args.push_back("/F");
-    args.push_back("\"" + path + "\"");
+
+    if (isConfigMode) {
+        args.push_back("CONFIG");
+    } else {
+        args.push_back("ENTERPRISE");
+    }
+
+    std::cout << "running regex on " << input << std::endl;
+
+    std::regex filepathRegex("\\w:.+?((?=\"$)|(?=\";)|($))", std::regex_constants::ECMAScript);
+    std::smatch m;
+
+    if (std::regex_search(input, m, filepathRegex)) {
+
+        std::string path = m[0].str();
+        std::cout << "extracted path: " << path << std::endl;
+        
+        args.push_back("/F");
+        args.push_back("\"" + path + "\"");
+
+    } else {
+        return false;
+    }
 
     launchProcess(starterPath, args);
+
+    return true;
 
 }
 
@@ -147,6 +162,11 @@ int main(int,char**) {
     // Our state
     bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    std::string inputBuffer;
+    bool regexError = false;
+    bool setFocusOnInput = true;
+    std::vector<std::string> history;
+    std::string* historySelectedItem = nullptr;
 
     // Main loop
     bool done = false;
@@ -192,14 +212,51 @@ int main(int,char**) {
 
             ImGui::Separator();
 
-            std::string buf = ""; // Example string to be used in the input field
-
             ImGui::SetNextItemWidth(-1); // Make the input field take the full width of the window
-            // ImGui::SetKeyboardFocusHere(); // Set keyboard focus to the input field
-            if (ImGui::InputTextWithHint("##input", "1C base file path...", &buf, ImGuiInputTextFlags_EnterReturnsTrue, nullptr, nullptr)) {
-                run1c->run(buf);
+
+            if (setFocusOnInput && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0)) {
+                ImGui::SetKeyboardFocusHere(0);
+                setFocusOnInput = false;
             }
-            ImGui::SetItemDefaultFocus(); // Set focus to the input field
+
+            if (ImGui::InputTextWithHint("##input", "1C path...", &inputBuffer, ImGuiInputTextFlags_EnterReturnsTrue, nullptr, nullptr)) {
+                if (ImGui::IsKeyDown(ImGuiKey_ModShift)) {
+                    regexError = !run1c->run(inputBuffer, true);
+                } else {
+                    regexError = !run1c->run(inputBuffer, false);
+                }
+                if (!regexError) {
+                    // Move found item to the top of history
+                    auto it = std::find(history.begin(), history.end(), inputBuffer);
+                    if (it != history.end()) {
+                        std::string found = *it;
+                        history.erase(it);
+                    }
+                    history.push_back(inputBuffer);
+                    historySelectedItem = &history.back();
+
+                    inputBuffer = "";
+                }
+            }
+
+            if (regexError) {
+                ImGui::TextColored(ImVec4(255,150,150,255), "regex error");
+            }
+
+            if (ImGui::BeginListBox("##listbox_history", ImVec2(-FLT_MIN, -FLT_MIN))) {
+                for (auto it = history.rbegin(); it != history.rend(); ++it) {
+                    std::string* currentItemRef = &(*it);
+                    bool isSelected = (historySelectedItem == currentItemRef);
+                    ImGuiSelectableFlags flags = (historySelectedItem == currentItemRef) ? ImGuiSelectableFlags_Highlight : 0;
+                    if (ImGui::Selectable(it->c_str(), isSelected, flags)) {
+                        historySelectedItem = currentItemRef;
+                        inputBuffer = *historySelectedItem;
+                    }
+                    if (isSelected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndListBox();
+            }
 
             ImGui::End();
         }
