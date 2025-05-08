@@ -1,5 +1,6 @@
 #define IMGUI_USER_CONFIG "my_imgui_config.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_stdlib.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
@@ -11,6 +12,10 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <map>
+#include <fstream>
+#include <sstream>
+#include <variant>
 
 #include "utils.h"
 
@@ -67,8 +72,199 @@ float getScreenDPI(SDL_Window* window) {
     return dpi;
 }
 
+using PersistentStorage_StoreItem = std::variant<std::string, std::vector<std::string>>;
+
+class PersistentStorage {
+public:
+    PersistentStorage();
+
+    // Loads configuration from file
+    void load();
+
+    // Saves configuration to file
+    void save();
+
+    // Store a string or array value by key
+    void put(const std::string& key, const PersistentStorage_StoreItem& value);
+
+    // Get a string value by key (returns empty string if not found or not a string)
+    std::string getItem(const std::string& key) const;
+
+    // Get a vector<string> by key (returns empty vector if not found or not an array)
+    std::vector<std::string> getArray(const std::string& key) const;
+
+    // Get a modifiable reference to a vector<string> by key (throws if not found or not an array)
+    std::vector<std::string>& getArrayRef(const std::string& key);
+
+    // Check if key exists
+    bool contains(const std::string& key) const;
+
+private:
+    std::string filepath;
+    std::map<std::string, PersistentStorage_StoreItem> store;
+
+    // Helper to parse lines like [type:name] or [type:type:name]
+    std::vector<std::string> parseBracketedLine(const std::string& line) const;
+
+    // Ensure config file exists
+    void createFileIfNotExists(const std::string& path) const;
+};
+
+PersistentStorage::PersistentStorage() {
+    filepath = getEnvironmentVariable("HOME") + ".run1c.cfg";
+    createFileIfNotExists(filepath);
+    std::cout << "[config store path] " << filepath << std::endl;
+}
+
+std::vector<std::string> PersistentStorage::parseBracketedLine(const std::string& line) const {
+    std::vector<std::string> result;
+    if (line.size() < 3 || line.front() != '[' || line.back() != ']')
+        return result;
+
+    std::string inner = line.substr(1, line.size() - 2); // Remove [ and ]
+    std::stringstream ss(inner);
+    std::string part;
+    while (std::getline(ss, part, ':')) {
+        result.push_back(part);
+    }
+
+    return result;
+}
+
+void PersistentStorage::createFileIfNotExists(const std::string& path) const {
+    std::ofstream outfile(path, std::ios::app);
+    outfile.close();
+}
+
+void PersistentStorage::load() {
+
+    std::ifstream infile(filepath);
+    std::vector<std::string> lines;
+
+    {
+        std::string line;
+        while(std::getline(infile, line)) {
+            // Strip leading and trailing whitespace
+            line.erase(0, line.find_first_not_of(" \t\r\n"));
+            line.erase(line.find_last_not_of(" \t\r\n") + 1);
+            if (line.empty()) continue; // Skip empty lines
+            lines.push_back(line);
+        }
+    }
+
+    for (size_t i = 0; i < lines.size(); ++i) {
+
+        const auto& line = lines[i];
+        auto parts = parseBracketedLine(line);
+
+        if (parts.size() == 1) {
+            std::string key = parts[0];
+            if (i + 1 < lines.size()) {
+                const auto& nextLine = lines[i + 1];
+                if (nextLine.front() == '[' || nextLine.back() == ']') {
+                    std::cerr << "[config loading] ERROR: missing value for key: " << key << std::endl;
+                    continue;
+                }
+                std::cout << "[config loading] " << key << " = " << nextLine << std::endl;
+                store.emplace(key, nextLine);
+                i++;
+            } else {
+                std::cerr << "[config loading] ERROR: missing value for key: " << key << std::endl;
+            }
+        } else if (parts.size() == 2 && parts[0] == "array") {
+            std::string key = parts[1];
+            std::vector<std::string> array;
+            while(i + 1 < lines.size()) {
+                const auto& nextLine = lines[i + 1];
+                if (nextLine.front() == '[' || nextLine.back() == ']') {
+                    break;
+                }
+                std::cout << "[config loading] " << key << " << " << nextLine << std::endl;
+                array.push_back(nextLine);
+                i++;
+            }
+            if (array.size() == 0) {
+                std::cerr << "[config loading] ERROR: missing items for array: " << key << std::endl;
+                continue;
+            }
+            store.emplace(key, array);
+        } else {
+            std::cerr << "[config loading] ERROR: wrong file format" << std::endl;
+        }
+
+    }
+
+}
+
+void PersistentStorage::save() {
+    std::cout << "[config saving] persisting storage to disk" << std::endl;
+
+    std::ofstream outfile(filepath, std::ios::trunc);
+    if (!outfile.is_open()) {
+        std::cerr << "[config saving] ERROR: Unable to open file for saving: " << filepath << std::endl;
+        return;
+    }
+
+    for (const auto& [key, value] : store) {
+        if (std::holds_alternative<std::string>(value)) {
+            outfile << "[" << key << "]" << std::endl;
+            outfile << std::get<std::string>(value) << std::endl;
+        } else if (std::holds_alternative<std::vector<std::string>>(value)) {
+            outfile << "[array:" << key << "]" << std::endl;
+            for (const auto& item : std::get<std::vector<std::string>>(value)) {
+                outfile << item << std::endl;
+            }
+        }
+    }
+
+    outfile.close();
+    std::cout << "[config saving] storage saved successfully" << std::endl;
+}
+
+void PersistentStorage::put(const std::string& key, const PersistentStorage_StoreItem& value) {
+    store[key] = value;
+}
+
+std::string PersistentStorage::getItem(const std::string& key) const {
+    auto it = store.find(key);
+    if (it != store.end()) {
+        if (std::holds_alternative<std::string>(it->second)) {
+            std::string value = std::get<std::string>(it->second);
+            return value;
+        }
+    }
+    return "";
+}
+
+std::vector<std::string> PersistentStorage::getArray(const std::string& key) const {
+    auto it = store.find(key);
+    if (it != store.end()) {
+        if (std::holds_alternative<std::vector<std::string>>(it->second)) {
+            const auto& vec = std::get<std::vector<std::string>>(it->second);
+            return vec;
+        }
+    }
+    return {}; // Return an empty vector if the key is not found or the value is not a vector
+}
+
+std::vector<std::string>& PersistentStorage::getArrayRef(const std::string& key) {
+    auto it = store.find(key);
+    if (it != store.end()) {
+        if (std::holds_alternative<std::vector<std::string>>(it->second)) {
+            return std::get<std::vector<std::string>>(it->second);
+        }
+    }
+    // If key does not exist, create it with an empty vector
+    store[key] = std::vector<std::string>{};
+    return std::get<std::vector<std::string>>(store[key]);
+}
+
+bool PersistentStorage::contains(const std::string& key) const {
+    return store.find(key) != store.end();
+}
+
 int main(int,char**) {
-    
+
     SetConsoleOutputCP(CP_UTF8);
     setvbuf(stdout, nullptr, _IOFBF, 1000);
 
@@ -158,14 +354,19 @@ int main(int,char**) {
     ImGui::GetStyle().ScaleAllSizes(dpiScale);
 
     auto run1c = new RUN1C();
+    auto storage = new PersistentStorage();
+    storage->load();
 
     // Our state
     bool show_demo_window = false;
+    bool showHelpWindow = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     std::string inputBuffer;
     bool regexError = false;
-    bool setFocusOnInput = true;
-    std::vector<std::string> history;
+    bool isInputFocused = false;
+    bool isSetFocusOnInput = true;
+    bool isSetFocusOnCurrentHistoryItem = false;
+    std::vector<std::string>& history = storage->getArrayRef("basesHistory");
     std::string* historySelectedItem = nullptr;
 
     // Main loop
@@ -205,18 +406,22 @@ int main(int,char**) {
             ImGui::SetNextWindowSize(io.DisplaySize);
             ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
 
-            ImGui::Begin("run1c", NULL, ImGuiWindowFlags_NoDecoration);
+            ImGui::Begin("RUN1C_MainWindow", NULL, ImGuiWindowFlags_NoDecoration);
 
+            if (ImGui::Button("Help")) showHelpWindow = !showHelpWindow;
+            ImGui::SameLine();
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+
+            ImGui::Checkbox("Demo Window", &show_demo_window);
 
             ImGui::Separator();
 
-            ImGui::SetNextItemWidth(-1); // Make the input field take the full width of the window
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(255,255,255,0));
+            ImGui::SetNextItemWidth(-FLT_MIN); // Make the input field take the full width of the window
 
-            if (setFocusOnInput && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0)) {
+            if (isSetFocusOnInput && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0)) {
                 ImGui::SetKeyboardFocusHere(0);
-                setFocusOnInput = false;
+                isSetFocusOnInput = false;
             }
 
             if (ImGui::InputTextWithHint("##input", "1C path...", &inputBuffer, ImGuiInputTextFlags_EnterReturnsTrue, nullptr, nullptr)) {
@@ -233,32 +438,86 @@ int main(int,char**) {
                         history.erase(it);
                     }
                     history.push_back(inputBuffer);
+                    storage->save();
                     historySelectedItem = &history.back();
 
                     inputBuffer = "";
                 }
             }
 
-            if (regexError) {
-                ImGui::TextColored(ImVec4(255,150,150,255), "regex error");
+            isInputFocused = ImGui::IsItemActiveAsInputText();
+            
+            if (isInputFocused) {
+                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) || ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+                    if (!historySelectedItem) historySelectedItem = &history.back();
+                    isSetFocusOnCurrentHistoryItem = true;
+                }
             }
 
+            ImGuiID inputID = ImGui::GetItemID();
+
+            if (regexError) {
+                ImGui::Separator();
+                ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "Wrong input");
+            }
+
+            ImGui::Separator();
+
             if (ImGui::BeginListBox("##listbox_history", ImVec2(-FLT_MIN, -FLT_MIN))) {
-                for (auto it = history.rbegin(); it != history.rend(); ++it) {
+
+                for (auto it = history.rbegin(); it != history.rend(); it++) {
+
                     std::string* currentItemRef = &(*it);
-                    bool isSelected = (historySelectedItem == currentItemRef);
-                    ImGuiSelectableFlags flags = (historySelectedItem == currentItemRef) ? ImGuiSelectableFlags_Highlight : 0;
+                    ImGui::PushID(currentItemRef);
+
+                    bool isSelected = historySelectedItem == currentItemRef;
+
+                    ImGuiSelectableFlags flags = (historySelectedItem == currentItemRef && !isInputFocused) ? ImGuiSelectableFlags_Highlight : 0;
+
+                    if (isSelected && isSetFocusOnCurrentHistoryItem) {
+                        ImGui::SetKeyboardFocusHere();
+                        isSetFocusOnCurrentHistoryItem = false;
+                    }
+
                     if (ImGui::Selectable(it->c_str(), isSelected, flags)) {
                         historySelectedItem = currentItemRef;
                         inputBuffer = *historySelectedItem;
+                        isSetFocusOnInput = true;
                     }
-                    if (isSelected)
+
+                    if (isSelected) {
                         ImGui::SetItemDefaultFocus();
+                    }
+
+                    ImGui::PopID();
+
                 }
                 ImGui::EndListBox();
             }
 
+            ImGui::PopStyleColor();
+
+            if (ImGui::GetActiveID() != inputID && ImGui::IsKeyDown(ImGuiKey_F)) {
+                isSetFocusOnInput = true;
+            }
+
             ImGui::End();
+        }
+
+        if (showHelpWindow) {
+
+            ImGui::SetNextWindowSize(ImVec2(0.0f, 0.0f));
+            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 2, io.DisplaySize.y / 2), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+
+            ImGui::Begin("Help##RUN1C_HelpPopupWindow", &showHelpWindow, ImGuiWindowFlags_None);
+
+            if (!ImGui::IsWindowFocused()) showHelpWindow = false;
+
+            ImGui::Text("[f] - focus search bar");
+            ImGui::Text("[up/down arrow] - move to history");
+
+            ImGui::End();
+
         }
 
         // Rendering
@@ -269,6 +528,8 @@ int main(int,char**) {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
     }
+
+    storage->save();
 
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
