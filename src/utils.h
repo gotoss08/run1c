@@ -58,9 +58,6 @@ void launchProcess(std::string program, const std::vector<std::string>& args) {
         commandLine += stringToWString(arg);
     }
 
-    std::wcout << "appName=" << appName << std::endl;
-    std::wcout << "commandLine=" << commandLine << std::endl;
-
     STARTUPINFOW si;
     PROCESS_INFORMATION pi;
 
