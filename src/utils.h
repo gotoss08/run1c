@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <regex>
+#include <fstream>
 
 #include <Windows.h>
 
@@ -75,4 +76,11 @@ void launchProcess(std::string program, const std::vector<std::string>& args) {
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
+}
+
+void createFileIfNotExists(const std::string& path) {
+    std::ifstream infile(path);
+    if (!infile.good()) {
+        std::ofstream outfile(path);
+    }
 }
