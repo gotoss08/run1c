@@ -42,7 +42,17 @@ set(project_srcs
     src/main.cpp
 )
 
-add_executable(run1c_debug ${project_srcs} ${imgui_srcs})
-set_target_properties(run1c_debug PROPERTIES OUTPUT_NAME "run1c_debug_v${EXECUTABLE_VERSION}_${PLATFORM}")
-target_compile_options(run1c_debug PRIVATE -g) # Add debug symbols
-target_link_libraries(run1c_debug SDL2main SDL2 opengl32 freetype)
+set(project_include_dir
+    src
+)
+
+set(project_headers
+    ${project_include_dir}/my_imgui_config.h
+    ${project_include_dir}/utils.h
+)
+
+add_executable(run1c ${project_headers} ${project_srcs} ${imgui_srcs})
+set_target_properties(run1c PROPERTIES OUTPUT_NAME "run1c_v${EXECUTABLE_VERSION}_${PLATFORM}")
+target_compile_options(run1c PRIVATE -g) # Add debug symbols
+target_include_directories(run1c PRIVATE src)
+target_link_libraries(run1c SDL2main SDL2 opengl32 freetype)
