@@ -19,6 +19,7 @@
 #include <memory>
 #include <filesystem>
 #include <regex>
+#include <algorithm>
 
 #include "utils.h"
 #include "config.h"
@@ -60,17 +61,37 @@ bool RUN1C::run(std::string input, bool isConfigMode) {
 
         ErrorHandler::logInfo("Running regex extraction on input");
 
-        std::regex filepathRegex("\\w:.+?((?=\"$)|(?=\";)|($))", std::regex_constants::ECMAScript);
+        // Enhanced regex to better handle full paths with special characters
+        std::regex filepathRegex("([a-zA-Z]:\\\\[^\"]+?)(?=\"|$)", std::regex_constants::ECMAScript);
         std::smatch m;
 
         if (std::regex_search(input, m, filepathRegex)) {
             std::string path = m[0].str();
             ErrorHandler::logInfo("Extracted path: " + path);
 
+            // Remove any trailing backslashes except for root paths like "C:\"
+            if (path.length() > 3 && path.back() == '\\') {
+                path.pop_back();
+            }
+
             // Validate extracted path
             if (!ErrorHandler::validatePath(path)) {
                 ErrorHandler::showError(ErrorType::InvalidPath, "Database path does not exist: " + path);
                 return false;
+            }
+
+            // Check if the path points to a 1Cv8.1cd file (case-insensitive)
+            std::filesystem::path filepath(path);
+            std::string filename = filepath.filename().string();
+            std::string lowercaseFilename = filename;
+            // Convert filename to lowercase for case-insensitive comparison
+            std::transform(lowercaseFilename.begin(), lowercaseFilename.end(), lowercaseFilename.begin(),
+                [](unsigned char c){ return std::tolower(c); });
+
+            if (lowercaseFilename == "1cv8.1cd") {
+                // Use the parent directory path
+                path = filepath.parent_path().string();
+                ErrorHandler::logInfo("Found " + filename + " file, using parent directory: " + path);
             }
 
             args.push_back("/F");
@@ -141,7 +162,7 @@ private:
 PersistentStorage::PersistentStorage() {
     filepath = Config::getStorageFilePath();
     std::cout << "[config] Using storage path: " << filepath << std::endl;
-    
+
     // Ensure storage directories and file exist
     createFileIfNotExists(filepath);
     std::cout << "[config] Storage initialized successfully" << std::endl;
@@ -170,7 +191,7 @@ void PersistentStorage::createFileIfNotExists(const std::string& path) const {
         std::cout << "[config] Creating directory: " << parentDir.string() << std::endl;
         std::filesystem::create_directories(parentDir);
     }
-    
+
     // Create file if it doesn't exist
     if (!std::filesystem::exists(path)) {
         std::cout << "[config] Creating storage file: " << path << std::endl;

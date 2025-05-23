@@ -79,11 +79,17 @@ The application automatically detects your 1C installation. For custom configura
 
 ### Supported Path Formats
 
-- Full file paths: `C:\Databases\MyBase\1Cv8.1cd`
+- Full file paths: `C:\Databases\MyBase\1Cv8.1cd` (directly to 1Cv8.1cd file, any case: 1CV8.1CD, 1cv8.1cd, etc.)
+- Directory paths: `C:\Databases\MyBase` (containing 1Cv8.1cd file)
 - UNC paths: `\\server\share\database\1Cv8.1cd`
 - Quoted paths: `"C:\Path with spaces\database.1cd"`
 
 ### Recent Improvements
+
+### Path Handling Enhancements
+- **1Cv8.1cd Path Support**: Added support for directly specifying the path to a 1Cv8.1cd file (case-insensitive)
+- **Automatic Path Resolution**: Automatically locates the parent directory when pointing to 1Cv8.1cd files
+- **Improved Path Validation**: Enhanced path extraction and validation with case-insensitive filename comparison
 
 ### Testing Infrastructure
 - **Unit Testing**: Added comprehensive tests with Google Test framework
@@ -172,8 +178,12 @@ Copyright (c) 2025 Pavel Pereverzev (gotoss08@gmail.com)
 
 ## Changelog
 
-### Version 1.0.0
+### Version 1.1.0
+- Added support for launching bases using full path to 1Cv8.1cd file (case-insensitive)
+- Improved path extraction and validation
+- Enhanced error logging for path validation
 
+### Version 1.0.0
 - Initial release with modern C++ architecture
 - Fixed ODR violations and memory management
 - Added comprehensive error handling

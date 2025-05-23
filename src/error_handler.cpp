@@ -30,13 +30,18 @@ void ErrorHandler::showErrorWithDialog(ErrorType type, const std::string& detail
 
 bool ErrorHandler::validatePath(const std::string& path) {
     if (path.empty()) {
+        logInfo("Path validation failed: path is empty");
         return false;
     }
     
     try {
-        return std::filesystem::exists(path);
+        bool exists = std::filesystem::exists(path);
+        if (!exists) {
+            logInfo("Path validation failed: path does not exist: " + path);
+        }
+        return exists;
     } catch (const std::exception& e) {
-        logError(ErrorType::InvalidPath, "Path validation failed: " + std::string(e.what()));
+        logError(ErrorType::InvalidPath, "Path validation failed: " + std::string(e.what()) + " for path: " + path);
         return false;
     }
 }
