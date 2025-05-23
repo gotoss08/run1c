@@ -16,13 +16,18 @@
 #include <fstream>
 #include <sstream>
 #include <variant>
+#include <memory>
+#include <filesystem>
+#include <regex>
 
 #include "utils.h"
+#include "config.h"
+#include "error_handler.h"
 
 class RUN1C {
 public:
     RUN1C() {
-        starterPath = getEnvironmentVariable("PROGRAMFILES") + "\\1cv8\\common\\1cestart.exe";
+        starterPath = Config::get1CStarterPath();
     };
     RUN1C(std::string starterPath) : starterPath(starterPath) {};
     bool run(std::string input, bool isConfigMode = false);
@@ -31,36 +36,59 @@ private:
 };
 
 bool RUN1C::run(std::string input, bool isConfigMode) {
+    try {
+        // Validate input
+        if (input.empty()) {
+            ErrorHandler::logError(ErrorType::InvalidPath, "Empty input provided");
+            return false;
+        }
 
-    std::vector<std::string> args;
+        // Validate starter path exists
+        if (!ErrorHandler::validate1CPath(starterPath)) {
+            ErrorHandler::showError(ErrorType::FileNotFound, "1C starter not found at: " + starterPath);
+            return false;
+        }
 
-    if (isConfigMode) {
-        args.push_back("CONFIG");
-    } else {
-        args.push_back("ENTERPRISE");
-    }
+        std::vector<std::string> args;
+        ErrorHandler::logInfo("Processing input: " + input);
 
-    std::cout << "running regex on " << input << std::endl;
+        if (isConfigMode) {
+            args.push_back("CONFIG");
+        } else {
+            args.push_back("ENTERPRISE");
+        }
 
-    std::regex filepathRegex("\\w:.+?((?=\"$)|(?=\";)|($))", std::regex_constants::ECMAScript);
-    std::smatch m;
+        ErrorHandler::logInfo("Running regex extraction on input");
 
-    if (std::regex_search(input, m, filepathRegex)) {
+        std::regex filepathRegex("\\w:.+?((?=\"$)|(?=\";)|($))", std::regex_constants::ECMAScript);
+        std::smatch m;
 
-        std::string path = m[0].str();
-        std::cout << "extracted path: " << path << std::endl;
-        
-        args.push_back("/F");
-        args.push_back("\"" + path + "\"");
+        if (std::regex_search(input, m, filepathRegex)) {
+            std::string path = m[0].str();
+            ErrorHandler::logInfo("Extracted path: " + path);
 
-    } else {
+            // Validate extracted path
+            if (!ErrorHandler::validatePath(path)) {
+                ErrorHandler::showError(ErrorType::InvalidPath, "Database path does not exist: " + path);
+                return false;
+            }
+
+            args.push_back("/F");
+            args.push_back("\"" + path + "\"");
+
+            ErrorHandler::logInfo("Launching 1C with path: " + path);
+            launchProcess(starterPath, args);
+            return true;
+
+        } else {
+            ErrorHandler::logError(ErrorType::InvalidPath, "Could not extract valid path from input: " + input);
+            return false;
+        }
+
+    } catch (const std::exception& e) {
+        ErrorHandler::showError(ErrorType::LaunchFailed, "Exception during launch: " + std::string(e.what()));
         return false;
     }
-
-    launchProcess(starterPath, args);
-
-    return true;
-
 }
 
 float getScreenDPI(SDL_Window* window) {
@@ -111,9 +139,12 @@ private:
 };
 
 PersistentStorage::PersistentStorage() {
-    filepath = getEnvironmentVariable("HOME") + ".run1c.cfg";
+    filepath = Config::getStorageFilePath();
+    std::cout << "[config] Using storage path: " << filepath << std::endl;
+    
+    // Ensure storage directories and file exist
     createFileIfNotExists(filepath);
-    std::cout << "[config store path] " << filepath << std::endl;
+    std::cout << "[config] Storage initialized successfully" << std::endl;
 }
 
 std::vector<std::string> PersistentStorage::parseBracketedLine(const std::string& line) const {
@@ -132,8 +163,20 @@ std::vector<std::string> PersistentStorage::parseBracketedLine(const std::string
 }
 
 void PersistentStorage::createFileIfNotExists(const std::string& path) const {
-    std::ofstream outfile(path, std::ios::app);
-    outfile.close();
+    // Create parent directory if it doesn't exist
+    std::filesystem::path filePath(path);
+    std::filesystem::path parentDir = filePath.parent_path();
+    if (!parentDir.empty() && !std::filesystem::exists(parentDir)) {
+        std::cout << "[config] Creating directory: " << parentDir.string() << std::endl;
+        std::filesystem::create_directories(parentDir);
+    }
+    
+    // Create file if it doesn't exist
+    if (!std::filesystem::exists(path)) {
+        std::cout << "[config] Creating storage file: " << path << std::endl;
+        std::ofstream outfile(path, std::ios::app);
+        outfile.close();
+    }
 }
 
 void PersistentStorage::load() {
@@ -338,7 +381,7 @@ int main(int,char**) {
     float dpiScale = round(dpi / windowsDefaultDPI * 2.0f) * 0.5f;
     std::cout << "[DPI scale] = " << dpiScale << std::endl;
 
-    const int baseFontSize = 18;
+    const int baseFontSize = Config::getBaseFontSize();
     const float fontSize = floorf(baseFontSize * dpiScale);
     std::cout << "[font size] = " << fontSize << std::endl;
 
@@ -347,14 +390,14 @@ int main(int,char**) {
         fontCfg.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags::ImGuiFreeTypeBuilderFlags_MonoHinting | ImGuiFreeTypeBuilderFlags_Monochrome; //отключает антиалиасинг и дает строгий алгоритм хинта
 		fontCfg.PixelSnapH = true;
 		fontCfg.RasterizerDensity = dpiScale;
-        ImFont* font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", fontSize, &fontCfg, io.Fonts->GetGlyphRangesCyrillic());
+        ImFont* font = io.Fonts->AddFontFromFileTTF(Config::getFontPath().c_str(), fontSize, &fontCfg, io.Fonts->GetGlyphRangesCyrillic());
         IM_ASSERT(font != nullptr);
 	}
 
     ImGui::GetStyle().ScaleAllSizes(dpiScale);
 
-    auto run1c = new RUN1C();
-    auto storage = new PersistentStorage();
+    auto run1c = std::make_unique<RUN1C>();
+    auto storage = std::make_unique<PersistentStorage>();
     storage->load();
 
     // Our state
@@ -446,7 +489,7 @@ int main(int,char**) {
             }
 
             isInputFocused = ImGui::IsItemActiveAsInputText();
-            
+
             if (isInputFocused) {
                 if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) || ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
                     if (!historySelectedItem) historySelectedItem = &history.back();

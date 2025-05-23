@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.20)
 project(run1c)
 
 # Project settings
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-Wall")
-add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
 # Version and Platform
 set(EXECUTABLE_VERSION "1.0.0")
@@ -14,15 +14,25 @@ string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" PLATFORM)
 # Output directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
+find_package(Freetype REQUIRED)
+
+if(FREETYPE_FOUND)
+    message(STATUS "Found freetype library: ${FREETYPE_INCLUDE_DIRS}")
+else()
+    message(STATUS "freetype library not found")
+endif()
+
+include_directories(${FREETYPE_INCLUDE_DIRS})
+
 # Dependencies
 
-set(FT_DISABLE_ZLIB ON)
-set(FT_DISABLE_BZIP2 ON)
-set(FT_DISABLE_PNG ON)
-set(FT_DISABLE_HARFBUZZ ON)
-set(FT_DISABLE_BROTLI ON)
+# set(FT_DISABLE_ZLIB ON)
+# set(FT_DISABLE_BZIP2 ON)
+# set(FT_DISABLE_PNG ON)
+# set(FT_DISABLE_HARFBUZZ ON)
+# set(FT_DISABLE_BROTLI ON)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/vendor/freetype-2.13.3/)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/vendor/freetype-2.13.3/)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor/SDL2-2.32.4/include/)
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor/SDL2-2.32.4/lib/x64/)
@@ -47,6 +57,9 @@ set(imgui_srcs
 
 set(project_srcs
     src/main.cpp
+    src/utils.cpp
+    src/config.cpp
+    src/error_handler.cpp
 )
 
 set(project_include_dir
@@ -56,6 +69,8 @@ set(project_include_dir
 set(project_headers
     ${project_include_dir}/my_imgui_config.h
     ${project_include_dir}/utils.h
+    ${project_include_dir}/config.h
+    ${project_include_dir}/error_handler.h
 )
 
 add_executable(run1c ${project_headers} ${project_srcs} ${imgui_srcs})

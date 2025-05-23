@@ -2,3 +2,7 @@ bin/*.ini
 bin/*.exe
 bin/debug
 build
+.cache
+*.log
+run1c_error.log
+run1c_storage.ini
