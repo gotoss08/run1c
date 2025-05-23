@@ -33,6 +33,7 @@ A modern GUI application for launching 1C:Enterprise databases with an intuitive
 - SDL2 2.32.4
 - Dear ImGui 1.91.9b
 - FreeType 2.13.3
+- Google Test (fetched automatically for testing)
 
 ### Build Instructions
 
@@ -46,6 +47,19 @@ cmake --build . --config Release
 ```
 
 Executable will be generated in `bin/` directory.
+
+### Running Tests
+
+```bash
+cd build
+ctest -V  # Run tests with verbose output
+```
+
+Or run the test executable directly:
+
+```bash
+./run1c_tests
+```
 
 ## Configuration
 
@@ -69,7 +83,12 @@ The application automatically detects your 1C installation. For custom configura
 - UNC paths: `\\server\share\database\1Cv8.1cd`
 - Quoted paths: `"C:\Path with spaces\database.1cd"`
 
-## Recent Improvements
+### Recent Improvements
+
+### Testing Infrastructure
+- **Unit Testing**: Added comprehensive tests with Google Test framework
+- **Test Coverage**: Tests for utility functions, configuration and error handling
+- **Test Automation**: Integrated with CTest for automated test execution
 
 ### Architecture Enhancements
 
@@ -107,6 +126,11 @@ src/
 ├── error_handler.h/.cpp  # Error handling and validation
 ├── utils.h/.cpp          # Utility functions
 ├── my_imgui_config.h     # ImGui configuration
+tests/
+├── test_utils.cpp        # Tests for utility functions
+├── test_config.cpp       # Tests for configuration
+├── test_error_handler.cpp # Tests for error handler
+└── test_main.cpp         # Test entry point
 vendor/
 ├── SDL2-2.32.4/          # Windowing and input
 ├── imgui-1.91.9b/        # Immediate mode GUI
@@ -134,7 +158,6 @@ The application provides comprehensive error reporting:
 ## Future Improvements
 
 - Cross-platform support
-- Unit testing framework
 - Advanced UI features (settings dialog, themes)
 - Configuration file system
 - Enhanced path handling

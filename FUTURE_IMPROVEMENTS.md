@@ -31,13 +31,14 @@ This document outlines recommended enhancements for the RUN1C application to imp
   - Include session information and user actions
   - Create a viewer for log analysis
 
-### 4. Unit Testing Framework
-- **Description**: Add comprehensive testing framework
-- **Benefits**: Ensures code reliability, prevents regressions
+### 4. Test Coverage Expansion
+- **Description**: Expand the existing unit test coverage
+- **Benefits**: Further ensures code reliability, prevents regressions
 - **Implementation Details**:
-  - Integrate Google Test or Catch2
-  - Add unit tests for core functionality
-  - Create mock objects for system dependencies
+  - Add additional unit tests for UI components
+  - Create integration tests for database operations
+  - Add performance benchmarking tests
+  - Implement mock objects for system dependencies
   - Add CI/CD pipeline integration
 
 ## Medium Priority Improvements
@@ -147,7 +148,7 @@ When deciding which improvements to implement first, consider:
 - Logging and Diagnostics
 
 ### Phase 2 (Medium-term)
-- Unit Testing Framework
+- Test Coverage Expansion
 - Advanced UI Features
 - Security Enhancements
 

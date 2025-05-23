@@ -7,12 +7,26 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-Wall")
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
+# Enable testing
+enable_testing()
+
 # Version and Platform
 set(EXECUTABLE_VERSION "1.0.0")
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" PLATFORM)
 
 # Output directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+
+# Include FetchContent for managing dependencies
+include(FetchContent)
+
+# Setup Google Test
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.14.0
+)
+FetchContent_MakeAvailable(googletest)
 
 find_package(Freetype REQUIRED)
 
@@ -56,7 +70,6 @@ set(imgui_srcs
 )
 
 set(project_srcs
-    src/main.cpp
     src/utils.cpp
     src/config.cpp
     src/error_handler.cpp
@@ -73,8 +86,17 @@ set(project_headers
     ${project_include_dir}/error_handler.h
 )
 
-add_executable(run1c ${project_headers} ${project_srcs} ${imgui_srcs})
+# Create a static library for the core code (to be used in tests)
+add_library(run1c_lib STATIC ${project_headers} ${project_srcs})
+target_include_directories(run1c_lib PUBLIC ${project_include_dir})
+target_link_libraries(run1c_lib freetype ${CMAKE_DL_LIBS})
+
+# Create the main executable
+add_executable(run1c src/main.cpp ${imgui_srcs})
 set_target_properties(run1c PROPERTIES OUTPUT_NAME "run1c_v${EXECUTABLE_VERSION}_${PLATFORM}")
 target_compile_options(run1c PRIVATE -g) # Add debug symbols
 target_include_directories(run1c PRIVATE src)
-target_link_libraries(run1c SDL2main SDL2 opengl32 freetype)
+target_link_libraries(run1c run1c_lib SDL2main SDL2 opengl32 freetype)
+
+# Add tests subdirectory
+add_subdirectory(tests)
