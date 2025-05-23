@@ -37,7 +37,7 @@ A modern GUI application for launching 1C:Enterprise databases with an intuitive
 ### Build Instructions
 
 ```bash
-git clone <repository>
+git clone git@github.com:gotoss08/run1c.git
 cd run1c
 mkdir build
 cd build
