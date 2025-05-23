@@ -6,7 +6,7 @@ A modern GUI application for launching 1C:Enterprise databases with an intuitive
 
 - **Smart Path Detection**: Automatically extracts database paths from various input formats
 - **History Management**: Persistent storage of previously used database paths
-- **Dual Launch Modes**: 
+- **Dual Launch Modes**:
   - Enterprise mode (Enter)
   - Configuration mode (Shift+Enter)
 - **DPI Aware**: Automatic scaling for high-DPI displays
@@ -143,7 +143,9 @@ The application provides comprehensive error reporting:
 
 ## License
 
-[Add your license information here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2025 Pavel Pereverzev (gotoss08@gmail.com)
 
 ## Changelog
 
